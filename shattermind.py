@@ -15,7 +15,7 @@ from colorama import Fore, init
 init(autoreset=True)
 
 # =========================
-# 🎨 BANNER (FIXED)
+# 🎨 BANNER
 # =========================
 def banner():
     print(Fore.CYAN + r"""
@@ -31,7 +31,6 @@ def banner():
     """)
 
     print(Fore.YELLOW + "Version: 2.0 | Mode: Recon Framework\n")
-
     print(Fore.GREEN + "Developed by: Fawad Qureshi")
     print(Fore.MAGENTA + "Instagram: @h4cker_fawad\n")
 
@@ -92,7 +91,6 @@ def cloudflare_detect(target):
         r = requests.get(target)
         if "cloudflare" in str(r.headers).lower():
             print(Fore.GREEN + "[+] Cloudflare Detected")
-            save_file("results", "waf.txt", target)
         else:
             print(Fore.RED + "[-] No Cloudflare")
     except:
@@ -100,7 +98,7 @@ def cloudflare_detect(target):
 
 
 # =========================
-# 🔎 SUBDOMAIN (THREADED)
+# 🔎 SUBDOMAIN ENUM
 # =========================
 subs_found = []
 
@@ -112,6 +110,7 @@ def check_sub(domain, sub):
         subs_found.append(full)
     except:
         pass
+
 
 def subdomain_enum(domain):
     loading("Running Subdomain Enumeration")
@@ -202,7 +201,94 @@ def cms_detect(target):
             print(Fore.GREEN + "[+] Drupal")
         else:
             print(Fore.RED + "[-] Unknown CMS")
+    except:
+        pass
 
+
+# =========================
+# 🌍 IP INTELLIGENCE (NEW)
+# =========================
+def ip_intelligence(domain):
+    loading("IP Intelligence")
+
+    try:
+        ip = socket.gethostbyname(domain)
+        print(Fore.CYAN + f"[+] IP: {ip}")
+
+        r = requests.get(f"http://ip-api.com/json/{ip}").json()
+
+        print(Fore.GREEN + "\n[IP INTEL]")
+        print("[+] Country:", r.get("country"))
+        print("[+] City:", r.get("city"))
+        print("[+] ISP:", r.get("isp"))
+        print("[+] Org:", r.get("org"))
+        print("[+] ASN:", r.get("as"))
+    except:
+        pass
+
+
+# =========================
+# 🔐 HEADERS ANALYSIS (NEW)
+# =========================
+def headers_analysis(target):
+    loading("Security Headers")
+
+    try:
+        r = requests.get(target)
+        h = r.headers
+
+        print(Fore.MAGENTA + "\n[HEADERS]")
+
+        headers = [
+            "Content-Security-Policy",
+            "Strict-Transport-Security",
+            "X-Frame-Options",
+            "X-XSS-Protection",
+            "X-Content-Type-Options"
+        ]
+
+        for head in headers:
+            print(f"[+] {head}: {h.get(head, 'MISSING')}")
+    except:
+        pass
+
+
+# =========================
+# 🔎 PARAMETER FINDER (NEW)
+# =========================
+def parameter_finder(target):
+    loading("Finding Parameters")
+
+    try:
+        r = requests.get(target)
+        params = re.findall(r"\?(\w+)=", r.text)
+
+        print(Fore.GREEN + "\n[PARAMETERS]")
+
+        if params:
+            for p in set(params):
+                print("[+] ?", p)
+        else:
+            print("[-] None found")
+    except:
+        pass
+
+
+# =========================
+# 📜 JS EXTRACTOR (NEW)
+# =========================
+def js_extractor(target):
+    loading("Extracting JS files")
+
+    try:
+        r = requests.get(target)
+        soup = BeautifulSoup(r.text, "html.parser")
+
+        for script in soup.find_all("script"):
+            src = script.get("src")
+            if src and ".js" in src:
+                print(Fore.GREEN + "[+] " + src)
+                save_file("results", "js.txt", src)
     except:
         pass
 
@@ -221,7 +307,11 @@ def menu():
 [7] Web Crawler
 [8] CMS Detection
 [9] Full Recon
-[10] Exit
+[10] IP Intelligence
+[11] Security Headers
+[12] Parameter Finder
+[13] JS Extractor
+[14] Exit
     """)
 
 
@@ -269,11 +359,27 @@ def main():
             dns_info(domain)
             whois_lookup(domain)
             subdomain_enum(domain)
+            cms_detect(target)
+            ip_intelligence(domain)
+            headers_analysis(target)
+            parameter_finder(target)
+            js_extractor(target)
             nmap_scan(domain)
             crawler(target)
-            cms_detect(target)
 
         elif choice == "10":
+            ip_intelligence(domain)
+
+        elif choice == "11":
+            headers_analysis(target)
+
+        elif choice == "12":
+            parameter_finder(target)
+
+        elif choice == "13":
+            js_extractor(target)
+
+        elif choice == "14":
             print(Fore.RED + "Exiting SHATTERMIND...")
             break
 
