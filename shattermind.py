@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# SHATTERMIND - Next Generation Recon & Vulnerability Intelligence Framework
 
 import requests
 import socket
@@ -7,196 +6,277 @@ import dns.resolver
 import whois
 import re
 import subprocess
-from urllib.parse import urljoin
+import threading
+import time
+import os
 from bs4 import BeautifulSoup
+from colorama import Fore, init
+
+init(autoreset=True)
 
 # =========================
-# 🎨 Banner
+# 🎨 BANNER (FIXED)
 # =========================
 def banner():
-    print("""
-╔══════════════════════════════════════════════╗
-║            SHATTERMIND Framework             ║
-║   Recon | OSINT | Vulnerability Intelligence ║
-╚══════════════════════════════════════════════╝
+    print(Fore.CYAN + r"""
+███████╗██╗  ██╗ █████╗ ████████╗████████╗███████╗██████╗ ███╗   ███╗██╗███╗   ██╗██████╗ 
+██╔════╝██║  ██║██╔══██╗╚══██╔══╝╚══██╔══╝██╔════╝██╔══██╗████╗ ████║██║████╗  ██║██╔══██╗
+███████╗███████║███████║   ██║      ██║   █████╗  ██████╔╝██╔████╔██║██║██╔██╗ ██║██║  ██║
+╚════██║██╔══██║██╔══██║   ██║      ██║   ██╔══╝  ██╔══██╗██║╚██╔╝██║██║██║╚██╗██║██║  ██║
+███████║██║  ██║██║  ██║   ██║      ██║   ███████╗██║  ██║██║ ╚═╝ ██║██║██║ ╚████║██████╔╝
+╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝      ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝╚═════╝ 
+
+        🔥 SHATTERMIND - Next Generation Recon Framework 🔥
+        🧠 OSINT | RECON | VULN INTELLIGENCE | AUTOMATION
     """)
 
+    print(Fore.YELLOW + "Version: 2.0 | Mode: Recon Framework | Author: Cipherphantom\n")
+
+
 # =========================
-# 🌐 Recon Engine
+# 📁 SAVE SYSTEM
+# =========================
+def save_file(folder, filename, data):
+    os.makedirs(folder, exist_ok=True)
+    with open(f"{folder}/{filename}", "a") as f:
+        f.write(data + "\n")
+
+
+# =========================
+# ⏳ LOADING
+# =========================
+def loading(text):
+    print(Fore.YELLOW + f"[~] {text}", end="")
+    for _ in range(3):
+        time.sleep(0.3)
+        print(".", end="")
+    print("\n")
+
+
+# =========================
+# 🌐 WEBSITE INFO
 # =========================
 def website_info(target):
+    loading("Fetching website info")
+
     try:
         r = requests.get(target, timeout=5)
-        print(f"[+] Title: {re.findall('<title>(.*?)</title>', r.text)[0]}")
-        print(f"[+] Server: {r.headers.get('Server')}")
+        title = re.findall("<title>(.*?)</title>", r.text)
+
+        print(Fore.GREEN + f"[+] Title: {title[0] if title else 'N/A'}")
+        print(Fore.GREEN + f"[+] Server: {r.headers.get('Server')}")
+
+        save_file("results", "info.txt", f"{target} | {title}")
+
     except:
-        print("[-] Error fetching website")
+        print(Fore.RED + "[-] Error fetching site")
 
     try:
         ip = socket.gethostbyname(target.replace("http://","").replace("https://",""))
-        print(f"[+] IP Address: {ip}")
+        print(Fore.GREEN + f"[+] IP: {ip}")
+        save_file("results", "ips.txt", ip)
     except:
         pass
 
+
+# =========================
+# ☁️ CLOUDFLARE
+# =========================
 def cloudflare_detect(target):
+    loading("Checking Cloudflare")
+
     try:
         r = requests.get(target)
         if "cloudflare" in str(r.headers).lower():
-            print("[+] Cloudflare Detected")
+            print(Fore.GREEN + "[+] Cloudflare Detected")
+            save_file("results", "waf.txt", target)
         else:
-            print("[-] No Cloudflare")
+            print(Fore.RED + "[-] No Cloudflare")
     except:
         pass
 
-def robots_enum(target):
+
+# =========================
+# 🔎 SUBDOMAIN (THREADED)
+# =========================
+subs_found = []
+
+def check_sub(domain, sub):
     try:
-        r = requests.get(urljoin(target, "/robots.txt"))
-        print("[+] robots.txt:\n", r.text)
+        full = f"{sub}.{domain}"
+        socket.gethostbyname(full)
+        print(Fore.GREEN + f"[+] {full}")
+        subs_found.append(full)
     except:
         pass
+
+def subdomain_enum(domain):
+    loading("Running Subdomain Enumeration")
+
+    subs = ["www","mail","dev","test","api","admin","vpn","ftp"]
+
+    threads = []
+
+    for sub in subs:
+        t = threading.Thread(target=check_sub, args=(domain, sub))
+        t.start()
+        threads.append(t)
+
+    for t in threads:
+        t.join()
+
+    for s in subs_found:
+        save_file("results", "subdomains.txt", s)
+
+
+# =========================
+# 🧠 WHOIS + DNS
+# =========================
+def whois_lookup(domain):
+    loading("WHOIS lookup")
+
+    try:
+        info = whois.whois(domain)
+        print(Fore.GREEN + f"[+] Org: {info.org}")
+    except:
+        pass
+
 
 def dns_info(domain):
+    loading("DNS lookup")
+
     try:
         result = dns.resolver.resolve(domain, 'A')
         for ip in result:
-            print(f"[+] DNS A Record: {ip}")
+            print(Fore.GREEN + f"[+] DNS: {ip}")
+            save_file("results", "dns.txt", str(ip))
     except:
         pass
 
-def whois_lookup(domain):
-    try:
-        info = whois.whois(domain)
-        print(f"[+] WHOIS Org: {info.org}")
-    except:
-        pass
 
 # =========================
-# 🧬 Enumeration Module
+# 🛡 NMAP
 # =========================
-def subdomain_enum(domain):
-    subs = ["www", "mail", "ftp", "dev", "test"]
-    for sub in subs:
-        try:
-            full = f"{sub}.{domain}"
-            socket.gethostbyname(full)
-            print(f"[+] Found: {full}")
-        except:
-            pass
+def nmap_scan(domain):
+    loading("Running Nmap Scan")
+    subprocess.call(["nmap", "-F", domain])
 
-def reverse_ip(ip):
-    print("[!] Reverse IP lookup requires API (hackertarget etc.)")
-
-def banner_grab(domain):
-    try:
-        s = socket.socket()
-        s.connect((domain, 80))
-        s.send(b"HEAD / HTTP/1.1\r\nHost: "+domain.encode()+b"\r\n\r\n")
-        print(s.recv(1024).decode())
-        s.close()
-    except:
-        pass
 
 # =========================
-# 🛡 Security Scanner
-# =========================
-def nmap_scan(target):
-    print("[*] Running Nmap Scan...")
-    subprocess.call(["nmap", "-F", target])
-
-def sensitive_files(target):
-    paths = ["/.env", "/config.php", "/backup.zip"]
-    for p in paths:
-        url = target + p
-        try:
-            r = requests.get(url)
-            if r.status_code == 200:
-                print(f"[+] Found Sensitive File: {url}")
-        except:
-            pass
-
-def sql_test(target):
-    payload = "'"
-    try:
-        r = requests.get(target + payload)
-        if "sql" in r.text.lower():
-            print("[+] Possible SQL Injection")
-    except:
-        pass
-
-# =========================
-# 📡 Intelligence Layer
+# 📡 CRAWLER
 # =========================
 def crawler(target):
+    loading("Crawling website")
+
     try:
         r = requests.get(target)
         soup = BeautifulSoup(r.text, "html.parser")
-        for link in soup.find_all("a"):
-            print("[+] Link:", link.get("href"))
+
+        for a in soup.find_all("a"):
+            link = a.get("href")
+            if link:
+                print(Fore.GREEN + link)
+                save_file("results", "urls.txt", link)
+
     except:
         pass
 
-def social_links(target):
-    try:
-        r = requests.get(target)
-        socials = re.findall(r"(facebook|twitter|linkedin)\.com/[^\"]+", r.text)
-        for s in socials:
-            print("[+] Social:", s)
-    except:
-        pass
 
 # =========================
-# 🧩 CMS Detection
+# 🧩 CMS DETECTION
 # =========================
 def cms_detect(target):
+    loading("Detecting CMS")
+
     try:
         r = requests.get(target).text.lower()
 
         if "wp-content" in r:
-            print("[+] WordPress Detected")
+            print(Fore.GREEN + "[+] WordPress")
         elif "joomla" in r:
-            print("[+] Joomla Detected")
+            print(Fore.GREEN + "[+] Joomla")
         elif "drupal" in r:
-            print("[+] Drupal Detected")
-        elif "magento" in r:
-            print("[+] Magento Detected")
+            print(Fore.GREEN + "[+] Drupal")
         else:
-            print("[-] Unknown CMS")
+            print(Fore.RED + "[-] Unknown CMS")
 
     except:
         pass
 
+
 # =========================
-# 🚀 Main Controller
+# 📋 MENU
 # =========================
-def run(target):
-    print("\n[ RECON ENGINE ]")
-    website_info(target)
-    cloudflare_detect(target)
-    robots_enum(target)
-    dns_info(target.replace("http://","").replace("https://",""))
-    whois_lookup(target.replace("http://","").replace("https://",""))
-
-    print("\n[ ENUMERATION ]")
-    subdomain_enum(target.replace("http://","").replace("https://",""))
-    banner_grab(target.replace("http://","").replace("https://",""))
-
-    print("\n[ SECURITY SCAN ]")
-    nmap_scan(target)
-    sensitive_files(target)
-    sql_test(target)
-
-    print("\n[ INTELLIGENCE ]")
-    crawler(target)
-    social_links(target)
-
-    print("\n[ CMS DETECTION ]")
-    cms_detect(target)
+def menu():
+    print(Fore.CYAN + """
+[1] Website Info
+[2] Cloudflare Detection
+[3] DNS Lookup
+[4] WHOIS Lookup
+[5] Subdomain Enumeration
+[6] Nmap Scan
+[7] Web Crawler
+[8] CMS Detection
+[9] Full Recon
+[10] Exit
+    """)
 
 
 # =========================
-# ▶ Entry
+# 🚀 MAIN
 # =========================
-if __name__ == "__main__":
+def main():
     banner()
-    target = input("Enter Target (https://example.com): ")
-    run(target)
+
+    target = input(Fore.YELLOW + "Enter Target (https://example.com): ")
+    domain = target.replace("http://","").replace("https://","")
+
+    while True:
+        menu()
+        choice = input(Fore.YELLOW + "Select >> ")
+
+        if choice == "1":
+            website_info(target)
+
+        elif choice == "2":
+            cloudflare_detect(target)
+
+        elif choice == "3":
+            dns_info(domain)
+
+        elif choice == "4":
+            whois_lookup(domain)
+
+        elif choice == "5":
+            subdomain_enum(domain)
+
+        elif choice == "6":
+            nmap_scan(domain)
+
+        elif choice == "7":
+            crawler(target)
+
+        elif choice == "8":
+            cms_detect(target)
+
+        elif choice == "9":
+            print(Fore.YELLOW + "[*] Running Full Recon...\n")
+            website_info(target)
+            cloudflare_detect(target)
+            dns_info(domain)
+            whois_lookup(domain)
+            subdomain_enum(domain)
+            nmap_scan(domain)
+            crawler(target)
+            cms_detect(target)
+
+        elif choice == "10":
+            print(Fore.RED + "Exiting SHATTERMIND...")
+            break
+
+        else:
+            print(Fore.RED + "Invalid option")
+
+
+if __name__ == "__main__":
+    main()
